@@ -1,0 +1,67 @@
+# Environment variables and credentials
+.env
+credentials.json
+
+# Data files (contain sensitive candidate information)
+ai_link_email_list_candidates.json
+filtered_candidates_with_linkedin.json
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+PIPFILE.lock
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+
+# Test files
+test_*.py
+*_test.py
+debug_*.py
+get_names_from_sheet.py
+
+# Temporary files
+*.tmp
+*.temp
