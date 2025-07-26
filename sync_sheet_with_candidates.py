@@ -6,8 +6,9 @@ Sheet sync script that reads from Google Sheet and adds new candidates with emai
 import os
 import json
 import datetime
+import re
 from pathlib import Path
-from typing import List, Dict, Set, Tuple
+from typing import List, Dict, Set, Tuple, Optional
 
 try:
     import gspread
@@ -26,6 +27,37 @@ def load_env_file():
                 if line and not line.startswith('#') and '=' in line:
                     key, value = line.split('=', 1)
                     os.environ[key] = value
+
+def extract_linkedin_username(linkedin_url: str) -> Optional[str]:
+    """
+    Extract LinkedIn username from various LinkedIn URL formats
+    
+    Examples:
+    - http://www.linkedin.com/in/artoyer → artoyer
+    - https://linkedin.com/in/artoyer/ → artoyer  
+    - https://www.linkedin.com/in/artoyer/details/experience/ → artoyer
+    
+    Args:
+        linkedin_url: Full LinkedIn URL
+        
+    Returns:
+        LinkedIn username if found, None otherwise
+    """
+    if not linkedin_url:
+        return None
+    
+    # Pattern to extract username from /in/username/ or /in/username
+    # Handles various formats and ignores anything after the username
+    pattern = r'linkedin\.com/in/([^/?]+)'
+    
+    match = re.search(pattern, linkedin_url, re.IGNORECASE)
+    if match:
+        username = match.group(1).strip()
+        # Remove any trailing characters that might have been included
+        username = re.sub(r'[^a-zA-Z0-9\-_].*$', '', username)
+        return username.lower() if username else None
+    
+    return None
 
 def split_name(full_name: str) -> Tuple[str, str]:
     """
@@ -277,14 +309,15 @@ class SheetSync:
                             if full_name:
                                 existing_names.add(full_name)
                     
-                    # Collect LinkedIn URLs
+                    # Collect LinkedIn usernames
                     if linkedin_url_col is not None:
                         if len(row) > linkedin_url_col and row[linkedin_url_col]:
                             linkedin_url = row[linkedin_url_col].strip()
                             if linkedin_url:
-                                # Normalize LinkedIn URL for comparison
-                                linkedin_url_lower = linkedin_url.lower().strip()
-                                existing_linkedin_urls.add(linkedin_url_lower)
+                                # Extract username from LinkedIn URL for better duplicate detection
+                                linkedin_username = extract_linkedin_username(linkedin_url)
+                                if linkedin_username:
+                                    existing_linkedin_urls.add(linkedin_username)
             else:
                 # Still collect emails even if name columns not found
                 if all_values:
@@ -295,17 +328,19 @@ class SheetSync:
                                 if email_value:  # Only add non-empty emails
                                     emails.add(email_value)
                         
-                        # Still collect LinkedIn URLs even if name columns not found
+                        # Still collect LinkedIn usernames even if name columns not found
                         if linkedin_url_col is not None:
                             if len(row) > linkedin_url_col and row[linkedin_url_col]:
                                 linkedin_url = row[linkedin_url_col].strip()
                                 if linkedin_url:
-                                    linkedin_url_lower = linkedin_url.lower().strip()
-                                    existing_linkedin_urls.add(linkedin_url_lower)
+                                    # Extract username from LinkedIn URL for better duplicate detection
+                                    linkedin_username = extract_linkedin_username(linkedin_url)
+                                    if linkedin_username:
+                                        existing_linkedin_urls.add(linkedin_username)
                 
             print(f"📊 Found {len(emails)} existing email addresses across columns F, G, H")
             print(f"📊 Found {len(existing_names)} existing names")
-            print(f"📊 Found {len(existing_linkedin_urls)} existing LinkedIn URLs")
+            print(f"📊 Found {len(existing_linkedin_urls)} existing LinkedIn usernames")
             
             # Show sample of existing names for debugging
             if existing_names:
@@ -389,10 +424,11 @@ class SheetSync:
             if not is_duplicate:
                 candidate_linkedin_url = candidate.get('linkedin_url', '').strip()
                 if candidate_linkedin_url:
-                    candidate_linkedin_url_lower = candidate_linkedin_url.lower().strip()
-                    if candidate_linkedin_url_lower in existing_linkedin_urls:
+                    # Extract username from candidate's LinkedIn URL
+                    candidate_linkedin_username = extract_linkedin_username(candidate_linkedin_url)
+                    if candidate_linkedin_username and candidate_linkedin_username in existing_linkedin_urls:
                         is_duplicate = True
-                        duplicate_reason = f"LinkedIn URL '{candidate_linkedin_url}' already exists"
+                        duplicate_reason = f"LinkedIn username '{candidate_linkedin_username}' already exists"
             
             if not is_duplicate:
                 new_candidates.append(candidate)
